@@ -27,7 +27,7 @@ streams. It cannot directly control the Bluetooth codec, radio retransmissions,
 internal speaker buffering, DAC, or acoustic output latency. Therefore exact
 acoustic synchronization is not guaranteed. Use sync_offset_ms to compensate
 for stable measured differences. If a speaker disconnects after startup, its
-worker reconnects locally; perfect alignment may require restarting the hub.
+worker reconnects locally; perfect alignment may require restarting the hub. 
 
 CONFIGURATION
 Edit config.py. The C28 source is selected in audio_source.py.
@@ -36,3 +36,5 @@ RUN
   python3 run_hub.py
 
 Stop with Ctrl+C.
+
+Quit edit test

@@ -18,7 +18,7 @@ SPEAKERS = [
         "name": "OontZ Angle",
         "device_mac": "73:39:96:C2:51:6F",
         "controller_mac": "AC:A7:F1:5B:B3:67",
-        "sync_offset_ms": 0,
+        "sync_offset_ms": 113,
     },
     {
         "name": "AuraTown",
@@ -30,7 +30,7 @@ SPEAKERS = [
         "name": "JBL Go 3",
         "device_mac": "18:90:67:08:4B:F0",
         "controller_mac": "AC:A7:F1:5B:B5:80",
-        "sync_offset_ms": 0,
+        "sync_offset_ms": 74,
     },
 ]
 

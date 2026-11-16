@@ -3,7 +3,7 @@
 
 Requires PipeWire (pw-cat, pactl) and NumPy. Run:
   python3 measure_speaker_latency.py --list
-  python3 measure_speaker_latency.py --source YOUR_MIC_SOURCE --speaker "JBL Go 3"
+  python3 measure_speaker_latency.py --speaker "JBL Go 3"
 
 Keep the microphone close to the speaker and use the same placement for each test.
 The reported value is approximate and includes PipeWire capture buffering/read
@@ -21,6 +21,7 @@ RATE = 48000
 TONE_SECONDS = 0.18
 CAPTURE_SECONDS = 3.0
 READ_BYTES = 960  # 10 ms, mono s16le
+DEFAULT_MIC_SOURCE = "alsa_input.usb-C-Media_Electronics_Inc._USB_PnP_Sound_Device-00.analog-mono"
 
 
 def command_text(args):
@@ -59,7 +60,7 @@ def find_tone_start(recorded_bytes, tone_bytes):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--list", action="store_true", help="List PipeWire sources and sinks.")
-    ap.add_argument("--source", help="Microphone source name from pactl list short sources.")
+    ap.add_argument("--source", default=DEFAULT_MIC_SOURCE, help="Microphone source name (defaults to your C-Media USB microphone).")
     ap.add_argument("--sink", help="Speaker sink name; overrides --speaker lookup.")
     ap.add_argument("--speaker", help="Speaker name from config.py, e.g. 'JBL Go 3'.")
     ap.add_argument("--trials", type=int, default=3)
@@ -74,8 +75,6 @@ def main():
         print("=== Sinks (speakers) ===")
         print(command_text(["pactl", "list", "short", "sinks"]))
         return
-    if not args.source:
-        raise SystemExit("Specify --source. Run --list to find your microphone.")
     sink = args.sink
     if not sink:
         if not args.speaker:
@@ -102,6 +101,7 @@ def main():
     print(f"Mic source: {args.source}\nSpeaker sink: {sink}")
     print("Place the mic close to the speaker. A short 1 kHz tone will play.")
     for trial in range(1, max(1, args.trials) + 1):
+        capture_start_time = time.monotonic()
         recorder = subprocess.Popen(
             ["pw-cat", "--record", "--raw", "--target", args.source,
              "--rate", str(RATE), "--channels", "1", "--format", "s16", "-"],
@@ -109,7 +109,6 @@ def main():
         try:
             time.sleep(0.35)
             captured = bytearray()
-            first_read_time = None
             submit_time = None
             target_size = int(CAPTURE_SECONDS * RATE * 2)
             player = None
@@ -119,8 +118,6 @@ def main():
                 read_time = time.monotonic()
                 if not block:
                     raise RuntimeError("Microphone stream ended; verify the source name.")
-                if first_read_time is None:
-                    first_read_time = read_time
                 captured.extend(block)
                 if submit_time is None and len(captured) >= RATE * 2:
                     player = subprocess.Popen(
@@ -142,8 +139,9 @@ def main():
             if onset is None:
                 print("  Tone not detected. Move mic closer or raise speaker volume.")
             else:
-                # Approximate because Python's first read time includes capture buffering.
-                estimated_heard_time = first_read_time + onset / RATE
+                # Anchor sample zero to recorder launch, not the first pipe read.
+                # This avoids adding the initial 350 ms warm-up as a false delay.
+                estimated_heard_time = capture_start_time + onset / RATE
                 ms = (estimated_heard_time - submit_time) * 1000
                 results.append(ms)
                 print(f"  Estimated latency: {ms:.1f} ms")
@@ -164,7 +162,7 @@ def main():
         print(f"  Average: {sum(results) / len(results):.1f} ms")
         print(f"  Min / max: {min(results):.1f} / {max(results):.1f} ms")
         print("\nTreat this as an approximate Y_i measurement, not a lab-grade latency.")
-        print("It includes microphone/ PipeWire capture buffering and Python read-timing uncertainty.")
+        print("It still includes stream-start, PipeWire, Bluetooth, speaker, acoustic, and detection uncertainty.")
     else:
         print("No valid measurements. Check the microphone, speaker, and source/sink names.")
 

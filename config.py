@@ -1,8 +1,8 @@
 """Configuration for the Raspberry Pi Bluetooth audio hub."""
 
 SAMPLE_RATE = 48000
-CHANNELS = 2
-CHUNK_BYTES = 19200       # 100 ms, stereo, signed 16-bit PCM
+CHANNELS = 1
+CHUNK_BYTES = 38400       # 100 ms, stereo, signed 16-bit PCM
 QUEUE_CHUNKS = 30
 PREBUFFER_CHUNKS = 4
 

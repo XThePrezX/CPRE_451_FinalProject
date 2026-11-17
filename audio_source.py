@@ -1,8 +1,14 @@
-"""Capture C28 once and fan out numbered PCM chunks to all speakers."""
+"""Capture the live source once and fan numbered PCM chunks to all speakers."""
+
 import subprocess
 import time
 
-from config import SAMPLE_RATE, CHANNELS, CHUNK_BYTES, PREBUFFER_CHUNKS, SYNC_START_DELAY_MS
+from config import (
+    SAMPLE_RATE,
+    CHANNELS,
+    CHUNK_BYTES,
+    PREBUFFER_CHUNKS,
+)
 
 ACTIVE_TRANSMITTER = "C28"
 TRANSMITTERS = {
@@ -37,7 +43,13 @@ def fan_out(queues, seq, chunk):
                 pass
 
 
-def run(audio_queues, stop_event, start_barrier, clock, playback_epoch):
+def run(
+    audio_queues,
+    stop_event,
+    start_barrier,
+    clock,
+    scheduler,
+):
     if ACTIVE_TRANSMITTER not in TRANSMITTERS:
         print("[MUSIC] Unknown transmitter selected.", flush=True)
         return
@@ -50,33 +62,65 @@ def run(audio_queues, stop_event, start_barrier, clock, playback_epoch):
         proc = None
         try:
             proc = subprocess.Popen(
-                ["pw-cat", "--record", "--raw", "--target", source,
-                 "--rate", str(SAMPLE_RATE), "--channels", str(CHANNELS),
-                 "--format", "s16", "-"],
-                stdout=subprocess.PIPE, stderr=None, bufsize=0,
+                [
+                    "pw-cat",
+                    "--record",
+                    "--raw",
+                    "--target",
+                    source,
+                    "--rate",
+                    str(SAMPLE_RATE),
+                    "--channels",
+                    str(CHANNELS),
+                    "--format",
+                    "s16",
+                    "-",
+                ],
+                stdout=subprocess.PIPE,
+                stderr=None,
+                bufsize=0,
             )
-            #print(f"[MUSIC] Receiving live audio from {ACTIVE_TRANSMITTER}.", flush=True)
+
             seq = 0
             while not stop_event.is_set():
                 chunk = read_exact(proc.stdout, CHUNK_BYTES)
                 if not chunk:
-                    raise RuntimeError("PipeWire input ended or disconnected.")
+                    raise RuntimeError(
+                        "PipeWire input ended or disconnected."
+                    )
+
                 fan_out(audio_queues, seq, chunk)
                 seq += 1
 
-                # Do not release the common start barrier until every speaker
-                # has enough audio buffered to start together.
-                if not clock.is_set() and all(q.qsize() >= PREBUFFER_CHUNKS for q in audio_queues):
+                # Do not start the shared timeline until every speaker worker
+                # is ready and every speaker queue has enough prebuffered audio.
+                if (
+                    not clock.is_set()
+                    and all(
+                        audio_queue.qsize() >= PREBUFFER_CHUNKS
+                        for audio_queue in audio_queues
+                    )
+                ):
                     try:
                         start_barrier.wait(timeout=90)
                     except Exception as exc:
-                        raise RuntimeError(f"Could not synchronize speaker startup: {exc}")
-                    playback_epoch["value"] = time.monotonic() + SYNC_START_DELAY_MS / 1000.0
+                        raise RuntimeError(
+                            f"Could not synchronize speaker startup: {exc}"
+                        )
+
+                    scheduler.start()
                     clock.set()
-                    print("[SCHEDULER] All speakers ready; common playback clock started.", flush=True)
+                    print(
+                        "[SCHEDULER] All speakers ready. "
+                        "Shared periodic transmission timeline armed.",
+                        flush=True,
+                    )
 
         except FileNotFoundError:
-            print("[MUSIC] pw-cat not found. Check PipeWire installation.", flush=True)
+            print(
+                "[MUSIC] pw-cat not found. Check PipeWire installation.",
+                flush=True,
+            )
             return
         except Exception as exc:
             if not stop_event.is_set():

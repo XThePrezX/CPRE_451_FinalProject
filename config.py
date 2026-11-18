@@ -3,7 +3,7 @@
 SAMPLE_RATE = 48000
 CHANNELS = 1
 CHUNK_BYTES = 288000  # 3 seconds, mono, signed 16-bit PCM
-QUEUE_CHUNKS = 100
+QUEUE_CHUNKS = 1
 PREBUFFER_CHUNKS = 10
 
 # Time between arming the scheduler and the first scheduled transmission.

@@ -27,7 +27,8 @@ def fan_out(queues, seq, chunk, drop_counts):
         try:
             audio_queue.put_nowait(item)
         except queue.Full:
-            # Preserve the live edge: discard the oldest queued chunk.
+            # Preserve the live edge: discard the oldest queued chunk. This is an
+            # application queue drop, not a report of Bluetooth RF packet loss.
             try:
                 audio_queue.get_nowait()
                 drop_counts[index] += 1

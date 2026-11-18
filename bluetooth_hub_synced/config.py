@@ -3,12 +3,12 @@
 SAMPLE_RATE = 44100
 CHANNELS = 2
 CHUNK_BYTES = 21168  # 120 ms at 44.1 kHz, stereo, 16-bit PCM
-QUEUE_CHUNKS = 5  # Maximum queued chunks per speaker (600 ms)
-PREBUFFER_CHUNKS = 1  # Startup prebuffer (120 ms)
+QUEUE_CHUNKS = 12  # 1.44 s per-speaker queue for transient jitter
+PREBUFFER_CHUNKS = 4  # 480 ms startup prebuffer
 
 
 # Time between arming the scheduler and the first scheduled transmission.
-SYNC_START_DELAY_MS = 0
+SYNC_START_DELAY_MS = 1000
 
 # Measured end-to-end latency for each speaker.
 # These are calibration measurements, not scheduler offsets.
@@ -36,3 +36,7 @@ SPEAKERS = [
 ]
 
 CHUNK_DURATION_S = CHUNK_BYTES / (SAMPLE_RATE * CHANNELS * 2)
+
+
+# Acoustic PID calibration output (created by calibrate_sync.py).
+CALIBRATION_FILE = "calibration.json"

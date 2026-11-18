@@ -4,10 +4,12 @@ import queue
 import shutil
 import threading
 import time
+import json
+from pathlib import Path
 
 import audio_source
 import speaker
-from config import CHUNK_DURATION_S, QUEUE_CHUNKS, SPEAKERS, SYNC_START_DELAY_MS
+from config import (CHUNK_DURATION_S, QUEUE_CHUNKS, SPEAKERS, SYNC_START_DELAY_MS, CALIBRATION_FILE)
 from scheduler import PeriodicOffsetScheduler
 
 
@@ -18,6 +20,25 @@ def main():
         raise SystemExit("Missing commands: " + ", ".join(missing))
     if not SPEAKERS:
         raise SystemExit("No speakers configured in config.py")
+
+    # Use the latest acoustic PID calibration when available. The scheduler
+    # needs relative speaker delays; any common microphone timestamp offset
+    # cancels when it computes max_latency - each_latency.
+    calibration_path = Path(CALIBRATION_FILE)
+    if calibration_path.exists():
+        try:
+            calibration = json.loads(calibration_path.read_text())
+            applied = 0
+            for cfg in SPEAKERS:
+                measured = calibration.get(cfg["name"], {}).get("latency_ms")
+                if measured is not None and 100.0 <= float(measured) <= 2500.0:
+                    cfg["measured_latency_ms"] = float(measured)
+                    applied += 1
+            print(f"[CALIBRATION] Loaded {applied}/{len(SPEAKERS)} speaker delays from {calibration_path}.", flush=True)
+        except (OSError, ValueError, TypeError) as exc:
+            print(f"[CALIBRATION] Could not read {calibration_path}: {exc}; using config.py baselines.", flush=True)
+    else:
+        print(f"[CALIBRATION] No {calibration_path} found; using baseline values in config.py. Run calibrate_sync.py first.", flush=True)
 
     scheduler = PeriodicOffsetScheduler(
         speakers=SPEAKERS,

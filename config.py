@@ -2,9 +2,9 @@
 
 SAMPLE_RATE = 48000
 CHANNELS = 1
-CHUNK_BYTES = 9600  # 3 seconds, mono, signed 16-bit PCM
-QUEUE_CHUNKS = 2 #How many chunks can I store at once?
-PREBUFFER_CHUNKS = 1 #How many chunks must I have before I can start?
+CHUNK_BYTES = 9600  #How big do you want each chunk to be?
+QUEUE_CHUNKS = 10 #How many chunks can I store at once?
+PREBUFFER_CHUNKS = 5 #How many chunks must I have before I can start?
 
 # Time between arming the scheduler and the first scheduled transmission.
 SYNC_START_DELAY_MS = 500

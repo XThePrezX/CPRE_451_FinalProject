@@ -2,9 +2,9 @@
 
 SAMPLE_RATE = 48000
 CHANNELS = 1
-CHUNK_BYTES = 9600  #How big do you want each chunk to be?
-QUEUE_CHUNKS = 100 #How many chunks can I store at once?
-PREBUFFER_CHUNKS = 90 #How many chunks must I have before I can start?
+CHUNK_BYTES = 9600  #How big do you want each chunk to be? 9600 = 0.1 seconds
+QUEUE_CHUNKS = 1000 #How many chunks can I store at once?
+PREBUFFER_CHUNKS = 900 #How many chunks must I have before I can start?
 
 # Time between arming the scheduler and the first scheduled transmission.
 SYNC_START_DELAY_MS = 500

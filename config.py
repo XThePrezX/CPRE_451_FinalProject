@@ -1,6 +1,6 @@
 """Configuration for the Raspberry Pi Bluetooth audio hub."""
 
-SAMPLE_RATE = 8000
+SAMPLE_RATE = 88200
 CHANNELS = 1
 CHUNK_BYTES = 96  #How big do you want each chunk to be? 0.001 seconds
 QUEUE_CHUNKS = 10000 #How many chunks can I store at once?

@@ -4,7 +4,7 @@ Closed-loop Bluetooth speaker timing experiment.
 
 Each 2-second cycle:
   0.000-0.333 s: AuraTown, 9 kHz
-  0.333-0.666 s: OontZ Angle, 10 kHz
+  0.333-0.666 s: OontZ Angle, 8 kHz
   0.666-1.000 s: JBL Go 3, 15 kHz
   1.000-2.000 s: silence
 
@@ -34,7 +34,7 @@ MIC_RATE = 48000
 CHANNELS = 1
 SAMPLE_FORMAT = "s16"
 PLAY_BLOCK_SECONDS = 0.010       # 10 ms output blocks
-MIC_BLOCK_SECONDS = 0.020        # 20 ms microphone analysis blocks
+MIC_BLOCK_SECONDS = 0.010        # 10 ms microphone analysis frames
 AMPLITUDE = 0.035                # Conservative digital amplitude
 CYCLE_SECONDS = 2.0
 SLOT_SECONDS = 1.0 / 3.0
@@ -57,7 +57,7 @@ SPEAKERS = [
     {
         "name": "OontZ Angle",
         "mac": "73:39:96:C2:51:6F",
-        "frequency": 10000.0,
+        "frequency": 8000.0,
         "slot": SLOT_SECONDS,
         "initial_latency": 0.912,
     },
@@ -158,11 +158,16 @@ def speaker_worker(speaker, sink, epoch, stop_event, latency_state, latency_lock
 
             # Estimate when this block will be heard acoustically.
             acoustic_time = now + lead
-            cycle_phase = (acoustic_time - epoch) % CYCLE_SECONDS
+            # Prevent modulo arithmetic from scheduling a tone before epoch.
+            if acoustic_time < epoch:
+                cycle_phase = None
+            else:
+                cycle_phase = (acoustic_time - epoch) % CYCLE_SECONDS
+
             slot_start = speaker["slot"]
             slot_end = slot_start + SLOT_SECONDS
 
-            if slot_start <= cycle_phase < slot_end:
+            if cycle_phase is not None and slot_start <= cycle_phase < slot_end:
                 tone_elapsed = cycle_phase - slot_start
                 block = make_tone_block(
                     speaker["frequency"], tone_elapsed, block_samples
@@ -242,8 +247,9 @@ def update_pid(state, measured_error):
 
 
 def microphone_worker(epoch, stop_event, states, states_by_name):
-    samples_per_block = int(round(MIC_RATE * MIC_BLOCK_SECONDS))
-    bytes_per_block = samples_per_block * 2
+    # 10 ms frames provide finer onset timing than the previous 20 ms blocks.
+    frame_samples = int(round(MIC_RATE * 0.010))
+    bytes_per_frame = frame_samples * 2
     command = [
         "pw-cat", "--record", "--raw", "--target", MIC_SOURCE,
         "--rate", str(MIC_RATE), "--channels", "1", "--format", "s16", "-"
@@ -253,22 +259,32 @@ def microphone_worker(epoch, stop_event, states, states_by_name):
 
     above_counts = {s["name"]: 0 for s in states}
     first_above_time = {s["name"]: None for s in states}
-    armed = {s["name"]: True for s in states}
-    low_counts = {s["name"]: 0 for s in states}
+    accepted_cycles = {s["name"]: set() for s in states}
+
+    # Anchor sample zero once, then derive all frame timestamps from the
+    # cumulative sample count. This avoids using Python read-completion time
+    # for every detection. The initial PipeWire/driver buffering offset remains
+    # an uncertainty, so this is improved timing, not calibrated instrumentation.
+    stream_time_zero = None
+    sample_index = 0
 
     try:
         while not stop_event.is_set():
-            raw = process.stdout.read(bytes_per_block)
-            if len(raw) != bytes_per_block:
+            raw = process.stdout.read(bytes_per_frame)
+            if len(raw) != bytes_per_frame:
                 if stop_event.is_set():
                     break
                 if not raw:
-                    print("\n[MIC ERROR] Microphone stream ended.")
+                    print("\\n[MIC ERROR] Microphone stream ended.")
                     break
                 continue
 
-            block_end = time.monotonic()
-            block_start = block_end - MIC_BLOCK_SECONDS
+            read_time = time.monotonic()
+            if stream_time_zero is None:
+                stream_time_zero = read_time - frame_samples / MIC_RATE
+
+            frame_start_time = stream_time_zero + sample_index / MIC_RATE
+            sample_index += frame_samples
             audio = np.frombuffer(raw, dtype="<i2")
 
             for speaker in states:
@@ -276,15 +292,11 @@ def microphone_worker(epoch, stop_event, states, states_by_name):
                 amplitude = estimate_tone_amplitude(audio, speaker["frequency"])
 
                 if amplitude >= DETECTION_THRESHOLD_COUNTS:
-                    low_counts[name] = 0
                     if above_counts[name] == 0:
-                        first_above_time[name] = block_start
+                        first_above_time[name] = frame_start_time
                     above_counts[name] += 1
 
-                    if (
-                        armed[name]
-                        and above_counts[name] >= DETECTION_CONFIRM_WINDOWS
-                    ):
+                    if above_counts[name] >= DETECTION_CONFIRM_WINDOWS:
                         detected_time = first_above_time[name]
                         expected_slot = speaker["slot"]
                         cycle_number = round(
@@ -295,24 +307,35 @@ def microphone_worker(epoch, stop_event, states, states_by_name):
                         )
                         error = detected_time - target_time
 
-                        # Ignore startup detections before the planned epoch.
-                        if target_time >= epoch - 0.05:
+                        # Only accept detections belonging to a real cycle and
+                        # reasonably close to that speaker's expected slot.
+                        valid_cycle = (
+                            cycle_number >= 0
+                            and target_time >= epoch
+                            and abs(error) <= SLOT_SECONDS * 0.5
+                        )
+
+                        if (
+                            valid_cycle
+                            and cycle_number not in accepted_cycles[name]
+                        ):
                             old, new = update_pid(states_by_name[name], error)
+                            accepted_cycles[name].add(cycle_number)
                             print(
-                                f"\n[DETECT] {name}: {speaker['frequency']:.0f} Hz"
+                                f"\\n[DETECT] {name}: {speaker['frequency']:.0f} Hz"
                                 f" | detected={detected_time - epoch:+.3f}s"
                                 f" | target={target_time - epoch:+.3f}s"
                                 f" | timing error={error * 1000:+.1f} ms"
                                 f" | lead {old * 1000:.1f} -> {new * 1000:.1f} ms"
                                 f" | mic amplitude={amplitude:.1f}"
                             )
-                        armed[name] = False
+
+                        # Require the tone to disappear before re-arming.
+                        above_counts[name] = 0
+                        first_above_time[name] = None
                 else:
                     above_counts[name] = 0
                     first_above_time[name] = None
-                    low_counts[name] += 1
-                    if low_counts[name] >= 2:
-                        armed[name] = True
     finally:
         if process.poll() is None:
             process.terminate()

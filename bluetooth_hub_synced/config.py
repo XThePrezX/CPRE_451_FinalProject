@@ -15,12 +15,12 @@ SYNC_START_DELAY_MS = 1000
 # The scheduler calculates each transmission offset as:
 #     offset_i = max_latency - measured_latency_i
 SPEAKERS = [
-    {
-        "name": "OontZ Angle",
-        "device_mac": "73:39:96:C2:51:6F",
-        "controller_mac": "AC:A7:F1:5B:B3:67",
-        "measured_latency_ms": 912,
-    },
+    # {
+    #     "name": "OontZ Angle",
+    #     "device_mac": "73:39:96:C2:51:6F",
+    #     "controller_mac": "AC:A7:F1:5B:B3:67",
+    #     "measured_latency_ms": 912,
+    # },
     {
         "name": "AuraTown",
         "device_mac": "1B:2B:6E:7B:36:56",

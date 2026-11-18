@@ -2,7 +2,7 @@
 
 SAMPLE_RATE = 48000
 CHANNELS = 1
-CHUNK_BYTES = 288000  # 3 seconds, mono, signed 16-bit PCM
+CHUNK_BYTES = 9600  # 3 seconds, mono, signed 16-bit PCM
 QUEUE_CHUNKS = 2 #How many chunks can I store at once?
 PREBUFFER_CHUNKS = 1 #How many chunks must I have before I can start?
 

@@ -27,12 +27,12 @@ SPEAKERS = [
         "controller_mac": "B8:27:EB:FB:3B:B2",
         "measured_latency_ms": 1025,
     },
-    # {
-    #     "name": "JBL Go 3",
-    #     "device_mac": "18:90:67:08:4B:F0",
-    #     "controller_mac": "AC:A7:F1:5B:B5:80",
-    #     "measured_latency_ms": 951,
-    # },
+    {
+        "name": "JBL Go 3",
+        "device_mac": "18:90:67:08:4B:F0",
+        "controller_mac": "AC:A7:F1:5B:B5:80",
+        "measured_latency_ms": 951,
+    },
 ]
 
 CHUNK_DURATION_S = CHUNK_BYTES / (SAMPLE_RATE * CHANNELS * 2)

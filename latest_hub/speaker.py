@@ -174,7 +174,7 @@ def run(audio_queue, stop_event, speaker_config, start_barrier, clock, scheduler
                     continue
                 try:
                     player = subprocess.Popen(
-                        ["pw-cat", "--playback", "--raw", "--target", sink,
+                        ["pw-cat", "--verbose", "--playback", "--raw", "--target", sink,
                          "--media-role", "Music", "--latency", "250ms",
                          "--rate", str(SAMPLE_RATE), "--channels", str(CHANNELS),
                          "--format", "s16", "-"],

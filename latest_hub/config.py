@@ -21,12 +21,12 @@ SPEAKERS = [
     #     "controller_mac": "AC:A7:F1:5B:B3:67",
     #     "measured_latency_ms": 912,
     # },
-    {
-        "name": "AuraTown",
-        "device_mac": "1B:2B:6E:7B:36:56",
-        "controller_mac": "B8:27:EB:FB:3B:B2",
-        "measured_latency_ms": 1025,
-    },
+    # {
+    #     "name": "AuraTown",
+    #     "device_mac": "1B:2B:6E:7B:36:56",
+    #     "controller_mac": "B8:27:EB:FB:3B:B2",
+    #     "measured_latency_ms": 1025,
+    # },
     {
         "name": "JBL Go 3",
         "device_mac": "18:90:67:08:4B:F0",
